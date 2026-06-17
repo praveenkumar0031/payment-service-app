@@ -13,6 +13,13 @@ app.get('/', (req, res) => {
         message: "Payment Gateway API is running smoothly."
     });
 });
+app.get('/all', (req, res) => {
+    res.status(200).json({
+        status: "up",
+        service: "all-payment-service",
+        message: "all Payment Gateway API is running smoothly."
+    });
+});
 
 // Sample Payment Endpoint
 app.post('/api/payments', (req, res) => {
