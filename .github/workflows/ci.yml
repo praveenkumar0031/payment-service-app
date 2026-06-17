@@ -53,7 +53,7 @@ jobs:
         
         # We will assume a values.yaml file structure has 'image.tag'
         # This sed command replaces the tag dynamically
-        sed -i "s/tag: .*/tag: \"$IMAGE_TAG\"/g" values.yaml
+        sed -i "s/tag: .*/tag: \"${{ github.sha }}\"/g" charts/payment-service/values.yaml
         
         # Commit and push changes back to GitOps repo
         git add values.yaml
