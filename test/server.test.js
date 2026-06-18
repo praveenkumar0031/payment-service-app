@@ -8,7 +8,7 @@ describe('Payment API Endpoints', () => {
         it('should return a 200 status and health info', async () => {
             const res = await request(app).get('/');
             
-            expect(res.statusCode).toBe(400);//test fails
+            expect(res.statusCode).toBe(200);//test fails
             expect(res.body).toHaveProperty('status', 'up');
             expect(res.body.service).toBe('payment-service');
         });
