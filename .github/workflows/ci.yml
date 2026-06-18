@@ -12,7 +12,7 @@
       steps:
         - uses: actions/checkout@v4
         - name: Install Dependencies and Run Tests
-          working-directory: ./test
+          
           run: |
             npm ci 
             npx test
