@@ -15,7 +15,7 @@
           
           run: |
             npm ci 
-            npx test
+            npm test
     
     security-scan:
       runs-on: ubuntu-latest
