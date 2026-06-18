@@ -1,8 +1,6 @@
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON payloads
 app.use(express.json());
 
 // Root endpoint / Health check
@@ -13,6 +11,7 @@ app.get('/', (req, res) => {
         message: "Payment Gateway API is running smoothly."
     });
 });
+
 app.get('/all', (req, res) => {
     res.status(200).json({
         status: "up",
@@ -32,7 +31,6 @@ app.post('/api/payments', (req, res) => {
         });
     }
 
-    // Simulating a successful payment response
     res.status(201).json({
         success: true,
         transactionId: `tx_${Math.random().toString(36).substr(2, 9)}`,
@@ -44,6 +42,13 @@ app.post('/api/payments', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Payment service listening on port ${PORT}`);
-});
+// Export app for testing
+module.exports = app;
+
+// Only start the server if this file is run directly (not imported by tests)
+if (require.main === module) {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`Payment service listening on port ${PORT}`);
+    });
+}
