@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest --ci --watchAll=false --passWithNoTests"
+    "test": "jest --watchAll=false"
   },
   "dependencies": {
     "express": "^4.19.2"
