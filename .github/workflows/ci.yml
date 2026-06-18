@@ -15,7 +15,7 @@
           working-directory: ./test
           run: |
             npm ci 
-            npx jest server.test.js --ci --watchAll=false
+            npx jest --no-cache --ci=false --watchAll=false
     
     security-scan:
       runs-on: ubuntu-latest
