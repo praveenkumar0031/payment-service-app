@@ -1,97 +1,80 @@
-  name: CI Build,test and Push to ECR
+name: CI Build, test and Push to Docker Hub
 
-  on:
-    push:
-      branches:
-        - main
+on:
+  push:
+    branches:
+      - main
 
-  jobs:
-    unit-testing:
-      runs-on: ubuntu-latest
-      name: Run Unit Tests
-      steps:
-        - uses: actions/checkout@v4
-        - name: Install Dependencies and Run Tests
-          
-          run: |
-            npm ci 
-            npm test
-    
-    security-scan:
-      runs-on: ubuntu-latest
-      name: Run Security Scan
-      needs: unit-testing # <-- Links to Job 1
-      steps:
-        - uses: actions/checkout@v4
-        - run: npm audit --audit-level=high||true
+jobs:
+  unit-testing:
+    runs-on: ubuntu-latest
+    name: Run Unit Tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies and Run Tests
+        run: |
+          npm ci 
+          npm test
+  
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Run Security Scan
+    needs: unit-testing
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm audit --audit-level=high||true
 
-    build-and-push:
-      runs-on: ubuntu-latest
-      name: Build and Push Docker Image
-      
-      needs: security-scan # <-- Links to both Job 1 and Job 2
-      steps:
-      # Step 1: Checkout the application code
+  build-and-push:
+    runs-on: ubuntu-latest
+    name: Build and Push Docker Image
+    needs: security-scan
+    steps:
       - name: Checkout Application Code
         uses: actions/checkout@v4
 
-      # Step 2: Configure AWS Credentials
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      # 🚀 Step 2: Log in to Docker Hub using Access Tokens
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Step 3: Log in to Amazon ECR
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # Step 4: Build, tag, and push image to Amazon ECR
+      # 🚀 Step 3: Build and Push directly to Docker Hub Registry
       - name: Build and Push Docker Image
-        
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: payment-service
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f prod/Dockerfile .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: prod/Dockerfile
+          push: true
+          # Tags the image with both your Git Commit SHA and 'latest'
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/payment-service:latest
 
-      # Step 5: GitOps - Checkout & Update Manifest Repo
+      # Step 4: GitOps - Update Manifest Repo with Docker Hub Image Path
       - name: Update GitOps Manifest Token Tag
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           IMAGE_TAG: ${{ github.sha }}
-          # Pulls the exact dynamic registry identifier generated automatically in Step 3
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: payment-service
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          # Configure Git Profile
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. Clone using the explicit GH_PAT secret token mapped into the URL format
           git clone https://$GH_PAT@github.com/${{ github.repository_owner }}/payment-service-gitops.git
           cd payment-service-gitops
           
-          # 2. AUTOMATION: Construct the full ECR URI dynamically on the fly
-          FULL_ECR_URI="$ECR_REGISTRY/$ECR_REPOSITORY"
+          # 🚀 AUTOMATION: Updates the image field structure to match standard Docker Hub naming convention
+          FULL_IMAGE_URI="$DOCKERHUB_USER/payment-service"
           
-          # Dynamically replace the repository configuration line (using | to handle the slashes safely)
-          sed -i "s|repository: .*|repository: $FULL_ECR_URI|g" charts/payment-service/values.yaml
-          
-          # Dynamically replace the tag tracking line match
+          sed -i "s|repository: .*|repository: $FULL_IMAGE_URI|g" charts/payment-service/values.yaml
           sed -i "s/tag: .*/tag: \"$IMAGE_TAG\"/g" charts/payment-service/values.yaml
           
-          # 3. Stage and check if any actual structural changes occurred
           git add charts/payment-service/values.yaml
           
-          # Only commit and push if a real update happened (prevents blank build loops)
           if git diff --staged --quiet; then
             echo "No image change detected. Infrastructure is perfectly up to date."
           else
-            git commit -m "automation: dynamically update registry URI and image tag to $IMAGE_TAG"
+            git commit -m "automation: dynamically update registry URI to Docker Hub and image tag to $IMAGE_TAG"
             git push https://$GH_PAT@github.com/${{ github.repository_owner }}/payment-service-gitops.git main
           fi
